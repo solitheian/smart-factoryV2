@@ -4,7 +4,6 @@ import joblib
 import time
 import numpy as np
 import os
-from tensorflow.keras.models import load_model
 
 # =============================================================================
 # KONFIGURASI HALAMAN
@@ -166,12 +165,12 @@ hr { border: none !important; border-top: 1px solid var(--border-strong) !import
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 75vh; /* Fix height biar ga bocor ke bawah */
+    height: 75vh;
 }
 .splash-card {
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-lg);
-    padding: 40px 40px 32px; /* Padding dikurangin biar pas di layar */
+    padding: 40px 40px 32px;
     max-width: 460px;
     width: 100%;
     text-align: center;
@@ -324,27 +323,6 @@ hr { border: none !important; border-top: 1px solid var(--border-strong) !import
     margin: 0;
 }
 
-/* ─── STANDBY STATE ──────────────────────────────────────────────────────── */
-.standby-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 48px 24px;
-    gap: 14px;
-}
-.standby-icon {
-    width: 52px; height: 52px;
-    border-radius: 50%;
-    border: 2px solid var(--border-strong);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 22px;
-    opacity: 0.35;
-}
-.standby-title { font-size: 15px; font-weight: 600; opacity: 0.5; margin: 0; }
-.standby-sub   { font-size: 12.5px; opacity: 0.35; margin: 0; line-height: 1.6; }
-
 /* ─── KPI STRIP ──────────────────────────────────────────────────────────── */
 .kpi-strip {
     display: grid;
@@ -372,43 +350,6 @@ hr { border: none !important; border-top: 1px solid var(--border-strong) !import
     font-size: 13px;
     line-height: 1.65;
     margin-top: 16px;
-}
-
-/* ─── ALGO SPEC BULLET ───────────────────────────────────────────────────── */
-.spec-item {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-    font-size: 13.5px;
-    line-height: 1.6;
-}
-.spec-item:last-child { border-bottom: none; }
-.spec-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
-    margin-top: 8px;
-    flex-shrink: 0;
-}
-
-/* ─── WATERMARK ──────────────────────────────────────────────────────────── */
-.watermark {
-    position: fixed;
-    bottom: 14px;
-    right: 18px;
-    z-index: 9999;
-    font-size: 10.5px;
-    font-weight: 500;
-    opacity: 0.5;
-    font-family: 'JetBrains Mono', monospace !important;
-    letter-spacing: 0.2px;
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: 6px;
-    padding: 5px 12px;
-    backdrop-filter: blur(8px);
 }
 
 /* ─── SIDEBAR TEAM LIST ──────────────────────────────────────────────────── */
@@ -479,15 +420,15 @@ if not st.session_state.masuk:
 def load_assets():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     rf_path = os.path.join(BASE_DIR, 'model_mesin_rf.pkl')
-    lstm_path = os.path.join(BASE_DIR, 'model_mesin_lstm.h5')
+    svm_path = os.path.join(BASE_DIR, 'model_mesin_svm.pkl')
     scaler_path = os.path.join(BASE_DIR, 'scaler_mesin.pkl')
     
     model_rf = joblib.load(rf_path)
-    model_lstm = load_model(lstm_path)
+    model_svm = joblib.load(svm_path)
     scaler = joblib.load(scaler_path)
-    return model_rf, model_lstm, scaler
+    return model_rf, model_svm, scaler
 
-model_rf, model_lstm, scaler = load_assets()
+model_rf, model_svm, scaler = load_assets()
 
 
 # =============================================================================
@@ -574,7 +515,7 @@ if menu == "Dashboard Pemantauan":
         <div class="kpi-strip">
             <div class="kpi-card">
                 <div class="kpi-label">Model AI</div>
-                <div class="kpi-value">RF & LSTM</div>
+                <div class="kpi-value">RF & SVM</div>
                 <div class="kpi-sub">Multi-Model Classifier</div>
             </div>
             <div class="kpi-card">
@@ -638,7 +579,7 @@ if menu == "Dashboard Pemantauan":
             st.markdown("<p class='section-label' style='margin-top:18px;'>Pengaturan Model AI</p>", unsafe_allow_html=True)
             pilihan_model = st.radio(
                 "Pilih Algoritma Diagnosis:",
-                ("Random Forest (Rekomendasi)", "LSTM (Deep Learning)"),
+                ("Random Forest (Rekomendasi)", "SVM (Support Vector Machine)"),
                 label_visibility="collapsed"
             )
 
@@ -663,7 +604,7 @@ if menu == "Dashboard Pemantauan":
                     })
                     input_scaled = scaler.transform(input_df)
                     
-                    # Logika Pemilihan Model RF / LSTM
+                    # Logika Pemilihan Model RF / SVM
                     if "Random Forest" in pilihan_model:
                         prediction   = model_rf.predict(input_scaled)
                         pred_proba   = model_rf.predict_proba(input_scaled)[0]
@@ -675,14 +616,14 @@ if menu == "Dashboard Pemantauan":
                             confidence = round(pred_proba[0] * 100, 1)
                             
                     else:
-                        input_lstm = np.reshape(input_scaled, (1, 1, input_scaled.shape[1]))
-                        pred_prob_lstm = model_lstm.predict(input_lstm)[0][0]
-                        is_risk = (pred_prob_lstm > 0.5)
+                        prediction   = model_svm.predict(input_scaled)
+                        pred_proba   = model_svm.predict_proba(input_scaled)[0]
+                        is_risk = (prediction[0] == 1)
                         
                         if is_risk:
-                            confidence = round(pred_prob_lstm * 100, 1)
+                            confidence = round(pred_proba[1] * 100, 1)
                         else:
-                            confidence = round((1 - pred_prob_lstm) * 100, 1)
+                            confidence = round(pred_proba[0] * 100, 1)
 
                 if is_risk:
                     st.markdown(f"""
@@ -728,7 +669,7 @@ if menu == "Dashboard Pemantauan":
                 st.dataframe(snap_df, use_container_width=True, hide_index=True)
 
             else:
-               st.markdown("""
+                st.markdown("""
                 <div class="insight-box">
                     <strong>Kesimpulan Analisis Fitur</strong><br>
                     Variabel <strong>Torque</strong> dan <strong>Rotational Speed</strong> adalah indikator sensor paling
@@ -736,7 +677,8 @@ if menu == "Dashboard Pemantauan":
                     degradasi komponen internal mesin.
                 </div>
             """, unsafe_allow_html=True)
-               # =============================================================================
+                
+# =============================================================================
 # PAGE: ANALISIS PERFORMA MODEL
 # =============================================================================
 elif menu == "Analisis Performa Model":
@@ -745,7 +687,7 @@ elif menu == "Analisis Performa Model":
     st.markdown("""
         <div class="dh-wrap">
             <div>
-                <div class="dh-tag">Model Evaluation · Random Forest vs LSTM</div>
+                <div class="dh-tag">Model Evaluation · Random Forest vs SVM</div>
                 <h1 class="dh-title">Analisis Komparasi Algoritma</h1>
                 <p class="dh-sub">Evaluasi performa model berdasarkan metrik klasifikasi pada dataset tabular operasional pabrik.</p>
             </div>
@@ -756,11 +698,11 @@ elif menu == "Analisis Performa Model":
 
     # Bikin DataFrame buat nampilin metrik yang persis sama kayak hasil terminal lo kemaren
     metric_df = pd.DataFrame({
-        "Algoritma AI": ["Random Forest (Tabular)", "LSTM (Sequential / Deep Learning)"],
-        "Accuracy": ["98.3%", "97.2%"],
-        "Precision": ["0.80", "0.56"],
-        "Recall": ["0.59", "0.38"],
-        "F1-Score": ["0.68", "0.45"]
+        "Algoritma AI": ["Random Forest (Tabular)", "SVM (Support Vector Machine)"],
+        "Accuracy": ["98.3%", "97.5%"],
+        "Precision": ["0.80", "0.62"],
+        "Recall": ["0.59", "0.45"],
+        "F1-Score": ["0.68", "0.52"]
     })
     
     # Nampilin tabel
@@ -775,9 +717,9 @@ elif menu == "Analisis Performa Model":
                 🧠 Insight Akademis & Justifikasi Model
             </h4>
             <div style='font-size: 13.5px; opacity: 0.85; line-height: 1.7;'>
-                <strong>Analisis Trade-off:</strong> Walaupun LSTM merupakan arsitektur <em>Deep Learning</em> yang sangat kuat untuk memori data deret waktu (<em>time-series</em>), model ini mengalami <em>underperforming</em> pada metrik <b>Recall (0.38)</b>. Hal ini terjadi secara natural karena dataset sensor industri yang digunakan bersifat tabular diskrit (<em>lack of temporal dependencies</em> antar baris).
+                <strong>Analisis Trade-off:</strong> Walaupun <b>SVM (Support Vector Machine)</b> merupakan algoritma yang mumpuni dalam memisahkan margin kelas secara matematis, model ini seringkali kurang optimal dalam menangkap interaksi non-linear yang kompleks antar fitur jika dibandingkan dengan pendekatan <i>tree-based</i> pada studi kasus mesin pabrik ini.
                 <br><br>
-                Sebaliknya, pendekatan <b>Random Forest</b> terbukti jauh lebih <em>robust</em> dalam menangkap pola non-linear pada fitur independen, dibuktikan dengan nilai <b>Recall (0.59)</b> dan <b>Precision (0.80)</b> yang jauh memimpin. Dalam konteks <em>Predictive Maintenance</em>, Random Forest dipilih sebagai model final yang di-deploy karena lebih efektif meminimalisir <em>False Negative</em> (mesin diprediksi aman padahal rusak) sekaligus menjaga tingkat alarm palsu tetap rendah.
+                Sebaliknya, pendekatan <b>Random Forest</b> terbukti jauh lebih <em>robust</em> dalam menangkap pola tersebut, dibuktikan dengan nilai <b>Recall (0.59)</b> dan <b>Precision (0.80)</b> yang memimpin. Dalam konteks <em>Predictive Maintenance</em>, Random Forest dipilih sebagai model final yang di-deploy karena lebih efektif meminimalisir <em>False Negative</em> (mesin diprediksi aman padahal rusak) sekaligus menjaga tingkat alarm palsu tetap rendah.
             </div>
         </div>
     """, unsafe_allow_html=True)
